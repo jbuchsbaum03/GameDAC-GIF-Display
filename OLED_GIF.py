@@ -1,6 +1,8 @@
-import json
+import sys
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw
+import pystray
+from pystray import Menu, MenuItem
 import json
 import time
 import os
@@ -15,7 +17,7 @@ from threading import Thread
 
 class OLED_GIF:
     def __init__(self):
-        corePropsPath = r"C:\ProgramData\SteelSeries\GG\coreProps.json"
+        corePropsPath = r"C:\SteelSeries Replacement\Data\SteelSeries\GG\coreProps.json"
         self.sseAddress = f'http://{json.load(open(corePropsPath))["address"]}'
         self.game = "OLED_GIF"
         self.game_display_name = 'Display OLED GIF'
@@ -145,53 +147,68 @@ class GUI:
         root.title("OLED GIF Display")
         root.geometry("300x200")
         self.gif_player = gif_player
-
+        
         documents_folder = os.path.expanduser("~\\Documents")
         self.game_dac_folder = os.path.join(documents_folder, "GameDAC GIF Display")
         self.save_file_path = os.path.join(self.game_dac_folder, "saved_gif")
+        self.pref_file_path = os.path.join(self.game_dac_folder, "preferences")
 
         self.gif_path = self.loadGIF()
 
-        # Status Label
+        #####################################################################
+
+        # Icon Setup #
+        self.icon = pystray.Icon("gif_icon", self.create_icon(), menu=Menu(MenuItem("Show", self.show_window), MenuItem("Quit", self.quit)))
+        self.icon.run_detached()
+
+        # Window Behavior #
+        root.protocol("WM_DELETE_WINDOW", self.quit)
+        root.bind("<Unmap>", self.to_tray)
+
+        # Status Label #
         self.status_label = tk.Label(root, text="Please select a GIF", fg="black")
         self.status_label.pack(pady=5)
 
-        # Control Frame
+        # GIF Label #
+        self.gif_label = tk.Label(root, text="No GIF Selected", fg="red")
+        self.gif_label.pack(after=self.status_label)
+
+        # Control Frame #
         control_frame = tk.Frame(root)
         control_frame.pack(pady=10)
 
-        # Start Button
+        # Start Button #
         self.start_button = tk.Button(control_frame, text="Start", command=self.startGIF)
         self.start_button.config(background="lightgreen")
         self.start_button.pack(padx=5, side=tk.LEFT)
 
-        # Stop Button
+        # Stop Button #
         self.stop_button = tk.Button(control_frame, text="Stop", command=self.stopGIF)
         self.stop_button.config(background="#ff6054", state=tk.DISABLED)
         self.stop_button.pack(padx=5, side=tk.LEFT)
         
-
-        # Frame for File Buttons
+        # Frame for File Buttons #
         file_frame = tk.Frame(root)
         file_frame.pack(after=control_frame, pady=10)
 
-        # Browse Button
+        # Browse Button #
         self.browse_button = tk.Button(file_frame, text="Browse GIF", command=self.browseGIF)
         self.browse_button.pack(side=tk.LEFT, padx=5)
 
-        # Save Button
+        # Save Button #
         self.save_button = tk.Button(file_frame, text="Save GIF", command=self.saveGIF)
         self.save_button.pack(side=tk.LEFT, padx=5)
 
-        # Clear Save Button
+        # Clear Save Button #
         self.clear_button = tk.Button(file_frame, text="Clear Save", command=self.clearGIF)
         self.clear_button.pack(side=tk.LEFT, padx=5)
 
-        # GIF Label
-        self.gif_label = tk.Label(root, text="No GIF Selected", fg="red")
-        self.gif_label.pack(after=file_frame)
+        # Start Minimized Checkbox
+        self.checked = tk.BooleanVar()
+        self.checkbox = tk.Checkbutton(root, text="Start in system tray", variable=self.checked, command=self.savePreference)
+        self.checkbox.pack(pady=10, after=file_frame)
 
-        # Check Loaded GIF
+        # Check Loaded GIF / Settings #
         if (self.gif_path):
             self.save_button.config(state=tk.NORMAL)
             self.gif_label.config(text=f"Using {os.path.basename(self.gif_path)}", fg="black")
@@ -201,11 +218,13 @@ class GUI:
             self.save_button.config(state=tk.DISABLED)
             self.start_button.config(state=tk.DISABLED)
             self.clear_button.config(state=tk.DISABLED)
-        
-           
-        
 
-#############################################################################
+        if (self.loadPreference()):
+            self.checked.set(True)
+            self.to_tray("<Unmap>")
+
+
+    #############################################################################
 
     def startGIF(self):
         if (self.gif_path):
@@ -213,7 +232,7 @@ class GUI:
             self.start_button.config(state=tk.DISABLED)
             
             self.stop_button.config(state=tk.NORMAL)
-            self.status_label.config(text=f"Playing...", fg="black")
+            self.status_label.config(text=f"Playing...", fg="green")
 
             gif_thread = Thread(target=self.gif_player.playGIF, args=(self.gif_path,))
             gif_thread.start()
@@ -223,6 +242,8 @@ class GUI:
         self.stop_button.config(state=tk.DISABLED)
         self.start_button.config(state=tk.NORMAL)
         self.status_label.config(text=f"Stopped", fg="red")
+
+    #############################################################################
 
     def browseGIF(self):
         file_path = filedialog.askopenfilename(filetypes=[("GIF files", "*.gif")])
@@ -269,7 +290,42 @@ class GUI:
         label.config(text=message, fg=color)
         time.sleep(1)
         label.config(text=prevText, fg=prevColor)
-        
+
+
+    def loadPreference(self):
+        if os.path.exists(self.pref_file_path):
+            with open(self.pref_file_path) as file:
+                data = json.load(file)
+                return data.get("start_min")
+        else:
+            return None
+
+    def savePreference(self):
+        os.makedirs(self.game_dac_folder, exist_ok=True)
+        with open(self.pref_file_path, "w") as file:
+            json.dump({"start_min": self.checked.get()}, file)
+
+    #########################################################################
+
+    def create_icon(self):
+        image = Image.new("RGB", (64, 64), color=(50,50,255))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle([0,0,64,64], fill="blue")
+        return image
+
+    def to_tray(self, event):
+        self.root.withdraw()
+        self.icon.visible = True
+
+    def show_window(self):
+        self.root.deiconify()
+        self.root.lift()
+
+    def quit(self):
+        self.icon.stop()
+        self.stopGIF()
+        self.root.quit()
+
 
 #############################################################################
 
