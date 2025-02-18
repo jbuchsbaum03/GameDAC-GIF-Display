@@ -1,12 +1,13 @@
 import json
 import requests
 from PIL import Image
-
+import json
 import time
 import os
 import tkinter as tk
 from tkinter import filedialog
 from threading import Thread
+
 
 #############################################################################
 #####                             GIF CODE                              #####
@@ -100,65 +101,6 @@ class OLED_GIF:
         requests.post(f'{self.sseAddress}/remove_game', json=data)    
 
 
-
-#############################################################################
-#####                             GUI CODE                              #####
-#############################################################################
-
-class GUI:
-    def __init__(self, root, gif_player):
-        self.root = root
-        root.title("OLED GIF Display")
-        root.geometry("300x220")
-        self.gif_player = gif_player
-        self.gif_path = None
-
-        
-        self.status_label = tk.Label(root, text="Please select a GIF", fg="black")
-        self.status_label.pack(pady=10)
-
-        self.start_button = tk.Button(root, text="Start", command=self.startGIF)
-        self.start_button.pack(pady=10)
-
-        self.stop_button = tk.Button(root, text="Stop", command=self.stopGIF)
-        self.stop_button.pack(pady=10)
-
-        self.stop_button.config(state=tk.DISABLED)
-
-        self.browse_button = tk.Button(root, text="Browse GIF", command=self.browseGIF)
-        self.browse_button.pack(pady=10)
-
-        self.gif_label = tk.Label(root, text="No GIF Selected", fg="red")
-        self.gif_label.pack(pady=5, after=self.browse_button)
-
-        
-
-#############################################################################
-
-    def startGIF(self):
-
-        if (self.gif_path):
-            self.gif_player.running = True
-            self.start_button.config(state=tk.DISABLED)
-            self.stop_button.config(state=tk.NORMAL)
-            self.status_label.config(text=f"Playing...", fg="black")
-
-            gif_thread = Thread(target=self.gif_player.playGIF, args=(self.gif_path,))
-            gif_thread.start()
-
-    def stopGIF(self):
-        self.gif_player.stopGIF()
-        self.stop_button.config(state=tk.DISABLED)
-        self.start_button.config(state=tk.NORMAL)
-        self.status_label.config(text=f"Stopped", fg="red")
-
-    def browseGIF(self):
-        file_path = filedialog.askopenfilename(filetypes=[("GIF files", "*.gif")])
-        if file_path:
-            self.gif_path = file_path
-            self.gif_label.config(text=f"Using {os.path.basename(file_path)}", fg="green")
-
-
 #############################################################################
 
 def processGIF(gif_path):
@@ -190,10 +132,144 @@ def processGIF(gif_path):
                     byte = 0
 
         gif_frames.append(bitmap)
-    
-    print(f" GIF has {len(gif_frames)} frames")
 
     return gif_frames
+
+#############################################################################
+#####                             GUI CODE                              #####
+#############################################################################
+
+class GUI:
+    def __init__(self, root, gif_player):
+        self.root = root
+        root.title("OLED GIF Display")
+        root.geometry("300x200")
+        self.gif_player = gif_player
+
+        documents_folder = os.path.expanduser("~\\Documents")
+        self.game_dac_folder = os.path.join(documents_folder, "GameDAC GIF Display")
+        self.save_file_path = os.path.join(self.game_dac_folder, "saved_gif")
+
+        self.gif_path = self.loadGIF()
+
+        # Status Label
+        self.status_label = tk.Label(root, text="Please select a GIF", fg="black")
+        self.status_label.pack(pady=5)
+
+        # Control Frame
+        control_frame = tk.Frame(root)
+        control_frame.pack(pady=10)
+
+        # Start Button
+        self.start_button = tk.Button(control_frame, text="Start", command=self.startGIF)
+        self.start_button.config(background="lightgreen")
+        self.start_button.pack(padx=5, side=tk.LEFT)
+
+        # Stop Button
+        self.stop_button = tk.Button(control_frame, text="Stop", command=self.stopGIF)
+        self.stop_button.config(background="#ff6054", state=tk.DISABLED)
+        self.stop_button.pack(padx=5, side=tk.LEFT)
+        
+
+        # Frame for File Buttons
+        file_frame = tk.Frame(root)
+        file_frame.pack(after=control_frame, pady=10)
+
+        # Browse Button
+        self.browse_button = tk.Button(file_frame, text="Browse GIF", command=self.browseGIF)
+        self.browse_button.pack(side=tk.LEFT, padx=5)
+
+        # Save Button
+        self.save_button = tk.Button(file_frame, text="Save GIF", command=self.saveGIF)
+        self.save_button.pack(side=tk.LEFT, padx=5)
+
+        # Clear Save Button
+        self.clear_button = tk.Button(file_frame, text="Clear Save", command=self.clearGIF)
+        self.clear_button.pack(side=tk.LEFT, padx=5)
+
+        # GIF Label
+        self.gif_label = tk.Label(root, text="No GIF Selected", fg="red")
+        self.gif_label.pack(after=file_frame)
+
+        # Check Loaded GIF
+        if (self.gif_path):
+            self.save_button.config(state=tk.NORMAL)
+            self.gif_label.config(text=f"Using {os.path.basename(self.gif_path)}", fg="black")
+            self.startGIF()
+
+        else:
+            self.save_button.config(state=tk.DISABLED)
+            self.start_button.config(state=tk.DISABLED)
+            self.clear_button.config(state=tk.DISABLED)
+        
+           
+        
+
+#############################################################################
+
+    def startGIF(self):
+        if (self.gif_path):
+            self.gif_player.running = True
+            self.start_button.config(state=tk.DISABLED)
+            
+            self.stop_button.config(state=tk.NORMAL)
+            self.status_label.config(text=f"Playing...", fg="black")
+
+            gif_thread = Thread(target=self.gif_player.playGIF, args=(self.gif_path,))
+            gif_thread.start()
+
+    def stopGIF(self):
+        self.gif_player.stopGIF()
+        self.stop_button.config(state=tk.DISABLED)
+        self.start_button.config(state=tk.NORMAL)
+        self.status_label.config(text=f"Stopped", fg="red")
+
+    def browseGIF(self):
+        file_path = filedialog.askopenfilename(filetypes=[("GIF files", "*.gif")])
+        if file_path:
+            self.gif_path = file_path
+            self.gif_label.config(text=f"Using {os.path.basename(file_path)}", fg="black")
+            self.status_label.config(text="Waiting...", fg="black")
+            self.start_button.config(state=tk.NORMAL)
+            self.save_button.config(state=tk.NORMAL)
+
+    def saveGIF(self):
+        os.makedirs(self.game_dac_folder, exist_ok=True)
+
+        with open(self.save_file_path, "w") as file:
+            json.dump({"saved_gif": self.gif_path}, file)
+
+        self.clear_button.config(state=tk.NORMAL)
+
+        notif = "GIF Saved!"
+        notif_thread = Thread(target=self.tempText, args=(self.gif_label, notif, "green"))
+        notif_thread.start()
+
+    def loadGIF(self):
+        if os.path.exists(self.save_file_path):
+            with open(self.save_file_path) as file:
+                data = json.load(file)
+                return data.get("saved_gif")
+        else:
+            return None
+
+    def clearGIF(self):
+        with open(self.save_file_path, "w") as file:
+            json.dump({"saved_gif": None}, file)
+    
+        self.clear_button.config(state=tk.DISABLED)
+
+        notif = "Save cleared!"
+        notif_thread = Thread(target=self.tempText, args=(self.gif_label, notif, "red"))
+        notif_thread.start()
+
+    def tempText(self, label, message, color):
+        prevText = label.cget("text")
+        prevColor = label.cget("fg")
+        label.config(text=message, fg=color)
+        time.sleep(1)
+        label.config(text=prevText, fg=prevColor)
+        
 
 #############################################################################
 
