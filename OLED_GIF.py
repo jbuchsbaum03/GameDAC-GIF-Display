@@ -1,14 +1,19 @@
+import os
 import sys
+import winshell
+from win32com.client import Dispatch
+
 import requests
-from PIL import Image, ImageDraw
-import pystray
-from pystray import Menu, MenuItem
+from PIL import Image
 import json
 import time
-import os
+from threading import Thread
+
 import tkinter as tk
 from tkinter import filedialog
-from threading import Thread
+import pystray
+from pystray import Menu, MenuItem
+
 
 
 #############################################################################
@@ -145,20 +150,25 @@ class GUI:
     def __init__(self, root, gif_player):
         self.root = root
         root.title("OLED GIF Display")
-        root.geometry("300x200")
+        root.geometry("300x250")
+    
+        if hasattr(sys, '_MEIPASS'):
+            self.icon_path = os.path.join(sys._MEIPASS, "oled_gif.ico")
+        else:
+            self.icon_path = "oled_gif.ico"
+
+        root.iconbitmap(self.icon_path)
+
         self.gif_player = gif_player
         
         documents_folder = os.path.expanduser("~\\Documents")
         self.game_dac_folder = os.path.join(documents_folder, "GameDAC GIF Display")
-        self.save_file_path = os.path.join(self.game_dac_folder, "saved_gif")
         self.pref_file_path = os.path.join(self.game_dac_folder, "preferences")
-
-        self.gif_path = self.loadGIF()
 
         #####################################################################
 
         # Icon Setup #
-        self.icon = pystray.Icon("gif_icon", self.create_icon(), menu=Menu(MenuItem("Show", self.show_window), MenuItem("Quit", self.quit)))
+        self.icon = pystray.Icon("oled_gif", Image.open(self.icon_path), menu=Menu(MenuItem("Show", self.show_window), MenuItem("Quit", self.quit)))
         self.icon.run_detached()
 
         # Window Behavior #
@@ -204,23 +214,28 @@ class GUI:
         self.clear_button.pack(side=tk.LEFT, padx=5)
 
         # Start Minimized Checkbox
-        self.checked = tk.BooleanVar()
-        self.checkbox = tk.Checkbutton(root, text="Start in system tray", variable=self.checked, command=self.savePreference)
-        self.checkbox.pack(pady=10, after=file_frame)
+        self.minVar = tk.BooleanVar()
+        self.chkmin = tk.Checkbutton(root, text="Start in System Tray", variable=self.minVar, command=self.savePreferences)
+        self.chkmin.pack(pady=10, after=file_frame)
+
+        # Run on Startup Checkbox
+        self.startVar = tk.BooleanVar()
+        self.checkStart = tk.Checkbutton(root, text="Run on Startup", variable=self.startVar, command=self.savePreferences)
+        self.checkStart.pack(after=self.chkmin)
 
         # Check Loaded GIF / Settings #
+        self.loadPreferences()
+
         if (self.gif_path):
             self.save_button.config(state=tk.NORMAL)
             self.gif_label.config(text=f"Using {os.path.basename(self.gif_path)}", fg="black")
             self.startGIF()
-
         else:
             self.save_button.config(state=tk.DISABLED)
             self.start_button.config(state=tk.DISABLED)
             self.clear_button.config(state=tk.DISABLED)
 
-        if (self.loadPreference()):
-            self.checked.set(True)
+        if (self.minVar.get()):
             self.to_tray("<Unmap>")
 
 
@@ -255,30 +270,16 @@ class GUI:
             self.save_button.config(state=tk.NORMAL)
 
     def saveGIF(self):
-        os.makedirs(self.game_dac_folder, exist_ok=True)
-
-        with open(self.save_file_path, "w") as file:
-            json.dump({"saved_gif": self.gif_path}, file)
-
         self.clear_button.config(state=tk.NORMAL)
+        self.savePreferences()
 
         notif = "GIF Saved!"
         notif_thread = Thread(target=self.tempText, args=(self.gif_label, notif, "green"))
         notif_thread.start()
 
-    def loadGIF(self):
-        if os.path.exists(self.save_file_path):
-            with open(self.save_file_path) as file:
-                data = json.load(file)
-                return data.get("saved_gif")
-        else:
-            return None
-
     def clearGIF(self):
-        with open(self.save_file_path, "w") as file:
-            json.dump({"saved_gif": None}, file)
-    
         self.clear_button.config(state=tk.DISABLED)
+        self.savePreferences()
 
         notif = "Save cleared!"
         notif_thread = Thread(target=self.tempText, args=(self.gif_label, notif, "red"))
@@ -291,27 +292,41 @@ class GUI:
         time.sleep(1)
         label.config(text=prevText, fg=prevColor)
 
+    def savePreferences(self):
+        os.makedirs(self.game_dac_folder, exist_ok=True)
 
-    def loadPreference(self):
+        if (self.clear_button.cget("state") == tk.DISABLED):
+            gifPath = None
+        else:
+            gifPath = self.gif_path
+
+        data = {
+            "start_min": self.minVar.get(),
+            "startup": self.startVar.get(),
+            "saved_gif": gifPath
+        }
+
+        with open(self.pref_file_path, "w") as file:
+            json.dump(data, file)
+
+        if (self.startVar.get()):
+            self.add_to_startup()
+        else:
+            self.remove_from_startup()
+
+    def loadPreferences(self):
         if os.path.exists(self.pref_file_path):
             with open(self.pref_file_path) as file:
                 data = json.load(file)
-                return data.get("start_min")
+                self.minVar.set(data.get("start_min"))
+                self.startVar.set(data.get("startup"))
+                self.gif_path = data.get("saved_gif")
         else:
-            return None
-
-    def savePreference(self):
-        os.makedirs(self.game_dac_folder, exist_ok=True)
-        with open(self.pref_file_path, "w") as file:
-            json.dump({"start_min": self.checked.get()}, file)
+            self.minVar.set(False)
+            self.startVar.set(False)
+            self.gif_path = None
 
     #########################################################################
-
-    def create_icon(self):
-        image = Image.new("RGB", (64, 64), color=(50,50,255))
-        draw = ImageDraw.Draw(image)
-        draw.rectangle([0,0,64,64], fill="blue")
-        return image
 
     def to_tray(self, event):
         self.root.withdraw()
@@ -326,6 +341,24 @@ class GUI:
         self.stopGIF()
         self.root.quit()
 
+    def add_to_startup(self):
+        startup_folder = winshell.startup()
+        shortcut_path = os.path.join(startup_folder, "OLED_GIF.lnk")
+        if not (os.path.exists(shortcut_path)):
+            target = sys.executable
+
+            shell = Dispatch("WScript.Shell")
+            shortcut = shell.CreateShortcut(shortcut_path)
+            shortcut.TargetPath = target
+            shortcut.WorkingDirectory = os.path.dirname(target)
+            shortcut.IconLocation = self.icon_path
+            shortcut.Save()
+
+    def remove_from_startup(self):
+        startup_folder = winshell.startup()
+        shortcut_path = os.path.join(startup_folder, "OLED_GIF.lnk")
+        if (os.path.exists(shortcut_path)):
+            os.remove(shortcut_path)
 
 #############################################################################
 
