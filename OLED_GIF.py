@@ -4,9 +4,11 @@ import winshell
 from win32com.client import Dispatch
 
 import requests
-from PIL import Image
+from PIL import Image as Image
+import cv2
 import json
 import time
+import numpy as np
 from threading import Thread
 
 import tkinter as tk
@@ -28,7 +30,7 @@ class OLED_GIF:
         self.game_display_name = 'Display OLED GIF'
         self.event = "DISPLAY_GIF"
         self.running = True
-        self.frameDelaySeconds = 0.025 #25 milliseconds
+        self.frameDelaySeconds = 0 #0.025 = 25 milliseconds
         
         self.registerGame()
         self.bindGameEvent()
@@ -49,7 +51,7 @@ class OLED_GIF:
                 "mode": "screen",
                 "zone": "one",
                 "datas": [{
-                    "length-millis": (self.frameDelaySeconds * 1000) + 50,
+                    "length-millis": (self.frameDelaySeconds * 1000) + 25,
                     "has-text": False,
                     "image-data": [0]
                 }]
@@ -111,35 +113,34 @@ class OLED_GIF:
 #############################################################################
 
 def processGIF(gif_path):
-    gif = Image.open(gif_path)
-    gif.seek(0)
-
+    gif = cv2.VideoCapture(gif_path)
     gif_frames = []
 
-    for frame in range(gif.n_frames):
-        try:
-            gif.seek(frame)
-        except:
+    while True:
+        success,frame = gif.read()
+        if not success:
             break
 
-        image = gif.copy().convert("1")
-        image = image.resize((128,52))
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        _, frame = cv2.threshold(frame, 128, 255, cv2.THRESH_BINARY)
+        frame = cv2.resize(frame, (128, 52), interpolation=cv2.INTER_CUBIC)
 
-        bitmap = [0] * 832
-
+        bytemap = [0] * 832
         index = 0
+
         for y in range(52):
             byte = 0
             for x in range(128):
-                pixel = 0 if image.getpixel((x, y)) == 0 else 1
+                pixel = 0 if frame[y, x] == 0 else 1
                 byte |= (pixel << (7 - (x % 8)))
                 if (x + 1) % 8 == 0:
-                    bitmap[index] = byte
+                    bytemap[index] = byte
                     index += 1
                     byte = 0
 
-        gif_frames.append(bitmap)
+        gif_frames.append(bytemap)
 
+    gif.release()
     return gif_frames
 
 #############################################################################
@@ -263,6 +264,7 @@ class GUI:
     def browseGIF(self):
         file_path = filedialog.askopenfilename(filetypes=[("GIF files", "*.gif")])
         if file_path:
+            self.gif_player.stopGIF()
             self.gif_path = file_path
             self.gif_label.config(text=f"Using {os.path.basename(file_path)}", fg="black")
             self.status_label.config(text="Waiting...", fg="black")
