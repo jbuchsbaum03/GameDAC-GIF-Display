@@ -5,11 +5,10 @@ from win32com.client import Dispatch
 
 import requests
 from PIL import Image as Image
-
 import cv2
-
 import json
 import time
+import numpy as np
 from threading import Thread
 
 import tkinter as tk
@@ -124,7 +123,7 @@ def processGIF(gif_path):
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         _, frame = cv2.threshold(frame, 128, 255, cv2.THRESH_BINARY)
-        frame = cv2.resize(frame, (128, 52), interpolation=cv2.INTER_NEAREST)
+        frame = cv2.resize(frame, (128, 52), interpolation=cv2.INTER_CUBIC)
 
         bytemap = [0] * 832
         index = 0
