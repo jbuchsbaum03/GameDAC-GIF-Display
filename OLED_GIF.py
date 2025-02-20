@@ -5,6 +5,9 @@ from win32com.client import Dispatch
 
 import requests
 from PIL import Image as Image
+
+import cv2
+
 import json
 import time
 from threading import Thread
@@ -111,22 +114,34 @@ class OLED_GIF:
 #############################################################################
 
 def processGIF(gif_path):
-    gif = Image.open(gif_path)
-    gif.seek(0)
-
+    gif = cv2.VideoCapture(gif_path)
     gif_frames = []
 
-    for frame in range(gif.n_frames):
-        try:
-            gif.seek(frame)
-        except:
+    while True:
+        success,frame = gif.read()
+        if not success:
             break
 
-        image = gif.convert("1").resize((128,52))
-        bytemap = list(image.tobytes())
-        print(len(bytemap))
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        _, frame = cv2.threshold(frame, 128, 255, cv2.THRESH_BINARY)
+        frame = cv2.resize(frame, (128, 52), interpolation=cv2.INTER_NEAREST)
+
+        bytemap = [0] * 832
+        index = 0
+
+        for y in range(52):
+            byte = 0
+            for x in range(128):
+                pixel = 0 if frame[y, x] == 0 else 1
+                byte |= (pixel << (7 - (x % 8)))
+                if (x + 1) % 8 == 0:
+                    bytemap[index] = byte
+                    index += 1
+                    byte = 0
+
         gif_frames.append(bytemap)
 
+    gif.release()
     return gif_frames
 
 #############################################################################
