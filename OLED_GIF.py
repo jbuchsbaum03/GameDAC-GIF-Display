@@ -30,10 +30,15 @@ class OLED_GIF:
         self.game_display_name = 'Display OLED GIF'
         self.event = "DISPLAY_GIF"
         self.running = True
-        self.frameDelaySeconds = 0 #0.025 = 25 milliseconds
-        
+        self.frameDelaySeconds = 0.001
+        #0.001 = 1ms || 0.025 = 25ms
+        self.invert = 0
+        # 0 = No; 1 = Yes
+
         self.registerGame()
         self.bindGameEvent()
+
+    #########################################################################
 
     def registerGame(self):
         #Registers the game with SSE3
@@ -78,7 +83,8 @@ class OLED_GIF:
     #########################################################################
 
     def playGIF(self, gif_path):
-        gif_frames = processGIF(gif_path)
+        gif_frames = processGIF(gif_path, self.invert)
+        time.sleep(0.5)
         while self.running:
             for frame in gif_frames:
                 if (not self.running):
@@ -112,9 +118,10 @@ class OLED_GIF:
 
 #############################################################################
 
-def processGIF(gif_path):
+def processGIF(gif_path, invert):
     gif = cv2.VideoCapture(gif_path)
     gif_frames = []
+    method = cv2.THRESH_BINARY_INV if invert else cv2.THRESH_BINARY
 
     while True:
         success,frame = gif.read()
@@ -124,7 +131,7 @@ def processGIF(gif_path):
         
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         frame = cv2.resize(frame, (128, 52), interpolation=cv2.INTER_CUBIC)
-        _, frame = cv2.threshold(frame, 128, 1, cv2.THRESH_BINARY)
+        _, frame = cv2.threshold(frame, 128, 1, method)
         
 
         bytemap = [0] * 832
@@ -195,6 +202,11 @@ class GUI:
         self.start_button.config(background="lightgreen")
         self.start_button.pack(padx=5, side=tk.LEFT)
 
+        # Invert Color
+        self.invert_button = tk.Button(control_frame, text="Invert", command=self.invertColors)
+        self.invert_button.config(background="#b0b0b0")
+        self.invert_button.pack(padx=5, side=tk.LEFT)
+
         # Stop Button #
         self.stop_button = tk.Button(control_frame, text="Stop", command=self.stopGIF)
         self.stop_button.config(background="#ff6054", state=tk.DISABLED)
@@ -261,6 +273,17 @@ class GUI:
         self.start_button.config(state=tk.NORMAL)
         self.status_label.config(text=f"Stopped", fg="red")
 
+    def invertColors(self):
+        self.gif_player.stopGIF()
+        time.sleep(0.2)
+        if (self.gif_player.invert):
+            self.gif_player.invert = 0
+        else:
+            self.gif_player.invert = 1
+        self.savePreferences()
+        self.startGIF()
+
+
     #############################################################################
 
     def browseGIF(self):
@@ -307,7 +330,8 @@ class GUI:
         data = {
             "start_min": self.minVar.get(),
             "startup": self.startVar.get(),
-            "saved_gif": gifPath
+            "saved_gif": gifPath,
+            "inverted": self.gif_player.invert
         }
 
         with open(self.pref_file_path, "w") as file:
@@ -325,6 +349,7 @@ class GUI:
                 self.minVar.set(data.get("start_min"))
                 self.startVar.set(data.get("startup"))
                 self.gif_path = data.get("saved_gif")
+                self.gif_player.invert = data.get("inverted")
         else:
             self.minVar.set(False)
             self.startVar.set(False)
