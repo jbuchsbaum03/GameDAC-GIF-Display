@@ -56,7 +56,7 @@ class OLED_GIF:
                 "mode": "screen",
                 "zone": "one",
                 "datas": [{
-                    "length-millis": (self.frameDelaySeconds * 1000) + 25,
+                    "length-millis": (self.frameDelaySeconds * 1000) + 50,
                     "has-text": False,
                     "image-data": [0]
                 }]
