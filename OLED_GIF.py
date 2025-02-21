@@ -121,9 +121,11 @@ def processGIF(gif_path):
         if not success:
             break
 
+        
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        _, frame = cv2.threshold(frame, 128, 255, cv2.THRESH_BINARY)
         frame = cv2.resize(frame, (128, 52), interpolation=cv2.INTER_CUBIC)
+        _, frame = cv2.threshold(frame, 128, 1, cv2.THRESH_BINARY)
+        
 
         bytemap = [0] * 832
         index = 0
@@ -131,7 +133,7 @@ def processGIF(gif_path):
         for y in range(52):
             byte = 0
             for x in range(128):
-                pixel = 0 if frame[y, x] == 0 else 1
+                pixel = int(frame[y,x])
                 byte |= (pixel << (7 - (x % 8)))
                 if (x + 1) % 8 == 0:
                     bytemap[index] = byte
