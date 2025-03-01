@@ -84,7 +84,7 @@ class OLED_GIF:
 
     def playGIF(self, gif_path):
         gif_frames = processGIF(gif_path, self.invert)
-        time.sleep(0.5)
+        time.sleep(0.1)
         while self.running:
             for frame in gif_frames:
                 if (not self.running):
@@ -96,8 +96,9 @@ class OLED_GIF:
     def playGIFCycle(self, gif_paths):
         processedGIFs = []
         for path in gif_paths:
-            gif_frames = processGIF(path, self.invert)
-
+            processedGIFs.append(processGIF(path, self.invert))
+            time.sleep(0.1)
+        
         while self.running:
             for gif_frames in processedGIFs:
                 for frame in gif_frames:
@@ -105,7 +106,7 @@ class OLED_GIF:
                         break
                     self.sendFrame(frame)
                     time.sleep(self.frameDelaySeconds)
-                time.sleep(0.5)
+        
 
 
     #########################################################################
@@ -290,26 +291,26 @@ class GUI:
                 self.save_button.config(state=tk.DISABLED)
                 self.start_button.config(state=tk.DISABLED)
                 self.clear_button.config(state=tk.DISABLED)
-        elif (self.cycleVar.get()):
+        else:
             self.browse_button.config(state=tk.DISABLED)
-            self.gif_label.config(text=f"Cycling GIFs Folder!", fg="black")
+            self.gif_label.config(text="Cycling GIFs Folder!", fg="black")
+            self.startGIF()
         
 
     #############################################################################
 
     def startGIF(self):
-        if ((not self.cycleVar.get()) and self.gif_path):
-            self.running = True
+        self.status_label.config(text="Playing...", fg="green")
+        if (self.cycleVar.get()):
+            self.startCycle()
+        elif (self.gif_path):
+            self.gif_player.running = True
             self.start_button.config(state=tk.DISABLED)
             
             self.stop_button.config(state=tk.NORMAL)
-            self.status_label.config(text=f"Playing...", fg="green")
 
             gif_thread = Thread(target=self.gif_player.playGIF, args=(self.gif_path,))
             gif_thread.start()
-
-        elif (self.cycleVar.get()):
-            self.startCycle()
 
     def startCycle(self):
         count = 0
@@ -324,6 +325,16 @@ class GUI:
             notif = "No GIFs in folder!"
             notif_thread = Thread(target=self.tempText, args=(self.gif_label, notif, "red"))
             notif_thread.start()
+        else:
+            self.gif_player.running = True
+            self.start_button.config(state=tk.DISABLED)
+
+            self.stop_button.config(state=tk.NORMAL)
+            self.status_label.config(text="Playing...", fg="green")
+
+            cycle_thread = Thread(target=self.gif_player.playGIFCycle, args=(gif_paths,))
+            cycle_thread.start()
+
 
     def stopGIF(self):
         self.gif_player.stopGIF()
@@ -342,12 +353,8 @@ class GUI:
         self.startGIF()
 
     def cycleToggle(self):
-        notif = "Mode changed!"
         self.stopGIF()
-        self.status_label.config(text='Waiting...', fg='black')
-        notif_thread = Thread(target=self.tempText, args=(self.gif_label, notif, "green"))
-        notif_thread.start()
-
+        
         if (self.cycleVar.get()):
             self.multiButton.config(state=tk.NORMAL)
             self.browse_button.config(state=tk.DISABLED)
@@ -355,7 +362,16 @@ class GUI:
         else:
             self.multiButton.config(state=tk.DISABLED)
             self.browse_button.config(state=tk.NORMAL)
-            self.gif_label.config(text=(f"Using {os.path.basename(self.gif_path)}") if (self.gif_path) else "Please select a GIF")
+
+            if (self.gif_path):
+                self.gif_label.config(text=f"Using {os.path.basename(self.gif_path)}")
+            else:
+                self.gif_label.config(text="No GIF Selected", fg="red")
+                self.start_button.config(state=tk.DISABLED)
+                self.stop_button.config(state=tk.DISABLED)
+
+            
+
         self.savePreferences()
 
 
