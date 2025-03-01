@@ -85,7 +85,6 @@ class OLED_GIF:
     def playGIF(self, gif_path):
         gif_frames = processGIF(gif_path, self.invert)
         time.sleep(0.5)
-
         while self.running:
             for frame in gif_frames:
                 if (not self.running):
