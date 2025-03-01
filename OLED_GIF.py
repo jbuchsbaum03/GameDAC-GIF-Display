@@ -56,7 +56,7 @@ class OLED_GIF:
                 "mode": "screen",
                 "zone": "one",
                 "datas": [{
-                    "length-millis": (self.frameDelaySeconds * 1000) + 25,
+                    "length-millis": (self.frameDelaySeconds * 1000) + 50,
                     "has-text": False,
                     "image-data": [0]
                 }]
@@ -85,12 +85,29 @@ class OLED_GIF:
     def playGIF(self, gif_path):
         gif_frames = processGIF(gif_path, self.invert)
         time.sleep(0.5)
+
         while self.running:
             for frame in gif_frames:
                 if (not self.running):
                     break
                 self.sendFrame(frame)
                 time.sleep(self.frameDelaySeconds)
+
+
+    def playGIFCycle(self, gif_paths):
+        processedGIFs = []
+        for path in gif_paths:
+            gif_frames = processGIF(path, self.invert)
+
+        while self.running:
+            for gif_frames in processedGIFs:
+                for frame in gif_frames:
+                    if (not self.running):
+                        break
+                    self.sendFrame(frame)
+                    time.sleep(self.frameDelaySeconds)
+                time.sleep(0.5)
+
 
     #########################################################################
 
@@ -160,7 +177,7 @@ class GUI:
     def __init__(self, root, gif_player):
         self.root = root
         root.title("OLED GIF Display")
-        root.geometry("300x250")
+        root.geometry("325x240")
     
         if hasattr(sys, '_MEIPASS'):
             self.icon_path = os.path.join(sys._MEIPASS, "oled_gif.ico")
@@ -217,7 +234,7 @@ class GUI:
         file_frame.pack(after=control_frame, pady=10)
 
         # Browse Button #
-        self.browse_button = tk.Button(file_frame, text="Browse GIF", command=self.browseGIF)
+        self.browse_button = tk.Button(file_frame, text="Choose GIF", command=self.browseGIF)
         self.browse_button.pack(side=tk.LEFT, padx=5)
 
         # Save Button #
@@ -228,37 +245,62 @@ class GUI:
         self.clear_button = tk.Button(file_frame, text="Clear Save", command=self.clearGIF)
         self.clear_button.pack(side=tk.LEFT, padx=5)
 
+
+        # Cycle Frame
+        cycle_frame = tk.Frame(root)
+        cycle_frame.pack(after=file_frame, pady=5)
+
+        # Cycle GIFs Checkbox
+        self.cycleVar = tk.BooleanVar()
+        self.checkCycle = tk.Checkbutton(cycle_frame, text="Cycle multiple GIFs", variable=self.cycleVar, command=self.cycleToggle)
+        self.checkCycle.pack(side=tk.LEFT, padx=5)
+
+        # Select GIFs Button
+        self.multiButton = tk.Button(cycle_frame, text="Open Folder", command=self.openFolder)
+        self.multiButton.pack(side=tk.RIGHT, padx=5)
+
+
+        # Options Frame
+        options_frame = tk.Frame(root)
+        options_frame.pack(after=cycle_frame, pady=10)
+
         # Start Minimized Checkbox
         self.minVar = tk.BooleanVar()
-        self.chkmin = tk.Checkbutton(root, text="Start in System Tray", variable=self.minVar, command=self.savePreferences)
-        self.chkmin.pack(pady=10, after=file_frame)
+        self.chkmin = tk.Checkbutton(options_frame, text="Start in System Tray", variable=self.minVar, command=self.savePreferences)
+        self.chkmin.pack(side=tk.LEFT, padx=5)
 
         # Run on Startup Checkbox
         self.startVar = tk.BooleanVar()
-        self.checkStart = tk.Checkbutton(root, text="Run on Startup", variable=self.startVar, command=self.savePreferences)
-        self.checkStart.pack(after=self.chkmin)
+        self.checkStart = tk.Checkbutton(options_frame, text="Run on Startup", variable=self.startVar, command=self.savePreferences)
+        self.checkStart.pack(side=tk.RIGHT, padx=5)
+
 
         # Check Loaded GIF / Settings #
         self.loadPreferences()
 
-        if (self.gif_path):
-            self.save_button.config(state=tk.NORMAL)
-            self.gif_label.config(text=f"Using {os.path.basename(self.gif_path)}", fg="black")
-            self.startGIF()
-        else:
-            self.save_button.config(state=tk.DISABLED)
-            self.start_button.config(state=tk.DISABLED)
-            self.clear_button.config(state=tk.DISABLED)
-
         if (self.minVar.get()):
             self.to_tray("<Unmap>")
 
+        if not (self.cycleVar.get()):
+            if (self.gif_path):
+                self.save_button.config(state=tk.NORMAL)
+                self.multiButton.config(state=tk.DISABLED)
+                self.gif_label.config(text=f"Using {os.path.basename(self.gif_path)}", fg="black")
+                self.startGIF()
+            else:
+                self.save_button.config(state=tk.DISABLED)
+                self.start_button.config(state=tk.DISABLED)
+                self.clear_button.config(state=tk.DISABLED)
+        elif (self.cycleVar.get()):
+            self.browse_button.config(state=tk.DISABLED)
+            self.gif_label.config(text=f"Cycling GIFs Folder!", fg="black")
+        
 
     #############################################################################
 
     def startGIF(self):
-        if (self.gif_path):
-            self.gif_player.running = True
+        if ((not self.cycleVar.get()) and self.gif_path):
+            self.running = True
             self.start_button.config(state=tk.DISABLED)
             
             self.stop_button.config(state=tk.NORMAL)
@@ -266,6 +308,23 @@ class GUI:
 
             gif_thread = Thread(target=self.gif_player.playGIF, args=(self.gif_path,))
             gif_thread.start()
+
+        elif (self.cycleVar.get()):
+            self.startCycle()
+
+    def startCycle(self):
+        count = 0
+        gif_paths = []
+        multiGIF_Folder = os.path.join(self.game_dac_folder, "Cycle GIFs")
+        os.makedirs(multiGIF_Folder, exist_ok=True)
+        for file in os.listdir(multiGIF_Folder):
+            if file.lower().endswith(".gif"):
+                count+= 1
+                gif_paths.append(os.path.join(multiGIF_Folder, file))
+        if (count == 0):
+            notif = "No GIFs in folder!"
+            notif_thread = Thread(target=self.tempText, args=(self.gif_label, notif, "red"))
+            notif_thread.start()
 
     def stopGIF(self):
         self.gif_player.stopGIF()
@@ -283,6 +342,24 @@ class GUI:
         self.savePreferences()
         self.startGIF()
 
+    def cycleToggle(self):
+        notif = "Mode changed!"
+        self.stopGIF()
+        self.status_label.config(text='Waiting...', fg='black')
+        notif_thread = Thread(target=self.tempText, args=(self.gif_label, notif, "green"))
+        notif_thread.start()
+
+        if (self.cycleVar.get()):
+            self.multiButton.config(state=tk.NORMAL)
+            self.browse_button.config(state=tk.DISABLED)
+            self.gif_label.config(text=f"Cycling GIFs folder!", fg="black")
+        else:
+            self.multiButton.config(state=tk.DISABLED)
+            self.browse_button.config(state=tk.NORMAL)
+            self.gif_label.config(text=(f"Using {os.path.basename(self.gif_path)}") if (self.gif_path) else "Please select a GIF")
+        self.savePreferences()
+
+
 
     #############################################################################
 
@@ -295,6 +372,12 @@ class GUI:
             self.status_label.config(text="Waiting...", fg="black")
             self.start_button.config(state=tk.NORMAL)
             self.save_button.config(state=tk.NORMAL)
+
+    def openFolder(self):
+        os.makedirs(self.game_dac_folder, exist_ok=True)
+        multiGIF_Folder = os.path.join(self.game_dac_folder, "Cycle GIFs")
+        os.makedirs(multiGIF_Folder, exist_ok=True)
+        os.startfile(multiGIF_Folder)
 
     def saveGIF(self):
         self.clear_button.config(state=tk.NORMAL)
@@ -331,7 +414,8 @@ class GUI:
             "start_min": self.minVar.get(),
             "startup": self.startVar.get(),
             "saved_gif": gifPath,
-            "inverted": self.gif_player.invert
+            "inverted": self.gif_player.invert,
+            "cycle": self.cycleVar.get()
         }
 
         with open(self.pref_file_path, "w") as file:
@@ -350,10 +434,12 @@ class GUI:
                 self.startVar.set(data.get("startup"))
                 self.gif_path = data.get("saved_gif")
                 self.gif_player.invert = data.get("inverted")
+                self.cycleVar.set(data.get("cycle"))
         else:
             self.minVar.set(False)
             self.startVar.set(False)
             self.gif_path = None
+            self.cycleVar.set(False)
 
     #########################################################################
 
