@@ -112,6 +112,7 @@ class OLED_GIF:
                 while not self.next_gif_event.is_set():
                     for frame in processedGIFs[self.currentGIF]:
                         if (not self.running):
+                            self.next_gif_event.set()
                             break
                         self.sendFrame(frame)
                         time.sleep(self.frameDelaySeconds)
@@ -123,9 +124,17 @@ class OLED_GIF:
             
             self.gif_start_event.wait()
             self.gif_start_event.clear()
-            time.sleep(20)
-            self.next_gif_event.set()
-            self.currentGIF = (self.currentGIF + 1) % length
+
+            # Manual Timer Required
+            start_time = time.time()
+            while self.running and (time.time() - start_time < 5):
+                if not self.running:
+                    break
+                time.sleep(0.1)
+
+            if (self.running):
+                self.next_gif_event.set()
+                self.currentGIF = (self.currentGIF + 1) % length
 
     #########################################################################
 
