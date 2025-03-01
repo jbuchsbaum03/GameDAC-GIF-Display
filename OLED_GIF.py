@@ -23,7 +23,7 @@ from pystray import Menu, MenuItem
 
 class OLED_GIF:
     def __init__(self):
-        corePropsPath = r"C:\SteelSeries Replacement\Data\SteelSeries\GG\coreProps.json"
+        corePropsPath =  r"C:\ProgramData\SteelSeries\GG\coreProps.json"
         self.sseAddress = f'http://{json.load(open(corePropsPath))["address"]}'
         self.game = "OLED_GIF"
         self.game_display_name = 'Display OLED GIF'
