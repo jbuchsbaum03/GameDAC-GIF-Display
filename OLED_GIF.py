@@ -8,8 +8,7 @@ from PIL import Image as Image
 import cv2
 import json
 import time
-import numpy as np
-from threading import Thread
+from threading import Thread, Event
 
 import tkinter as tk
 from tkinter import filedialog
@@ -34,6 +33,9 @@ class OLED_GIF:
         #0.001 = 1ms || 0.025 = 25ms
         self.invert = 0
         # 0 = No; 1 = Yes
+
+        self.currentGIF = 0
+        # Used for GIF cycle option
 
         self.registerGame()
         self.bindGameEvent()
@@ -97,17 +99,33 @@ class OLED_GIF:
         processedGIFs = []
         for path in gif_paths:
             processedGIFs.append(processGIF(path, self.invert))
-            time.sleep(0.1)
         
-        while self.running:
-            for gif_frames in processedGIFs:
-                for frame in gif_frames:
-                    if (not self.running):
-                        break
-                    self.sendFrame(frame)
-                    time.sleep(self.frameDelaySeconds)
-        
+        self.gif_start_event = Event()
+        self.next_gif_event = Event()
+        timer_thread = Thread(target=self.incrementTimer, args=(len(processedGIFs),))
+        timer_thread.start()
 
+        while self.running:
+                self.gif_start_event.set()
+                self.next_gif_event.clear()
+
+                while not self.next_gif_event.is_set():
+                    for frame in processedGIFs[self.currentGIF]:
+                        if (not self.running):
+                            break
+                        self.sendFrame(frame)
+                        time.sleep(self.frameDelaySeconds)
+        
+    def incrementTimer(self, length):
+        while self.running:
+            if (not self.running):
+                break
+            
+            self.gif_start_event.wait()
+            self.gif_start_event.clear()
+            time.sleep(20)
+            self.next_gif_event.set()
+            self.currentGIF = (self.currentGIF + 1) % length
 
     #########################################################################
 
