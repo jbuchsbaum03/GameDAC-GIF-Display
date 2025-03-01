@@ -23,7 +23,7 @@ from pystray import Menu, MenuItem
 
 class OLED_GIF:
     def __init__(self):
-        corePropsPath = r"C:\ProgramData\SteelSeries\GG\coreProps.json"
+        corePropsPath = r"C:\SteelSeries Replacement\Data\SteelSeries\GG\coreProps.json"
         self.sseAddress = f'http://{json.load(open(corePropsPath))["address"]}'
         self.game = "OLED_GIF"
         self.game_display_name = 'Display OLED GIF'
@@ -127,7 +127,7 @@ class OLED_GIF:
 
             # Manual Timer Required
             start_time = time.time()
-            while self.running and (time.time() - start_time < 5):
+            while self.running and (time.time() - start_time < 20):
                 if not self.running:
                     break
                 time.sleep(0.1)
