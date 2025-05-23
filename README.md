@@ -34,3 +34,9 @@ This can be changed at the top of the OLED_GIF.py file, but you will have to man
 * 'Run on Startup' enables the program to run at startup/login
 
 The idea behind 'start in system tray' and 'run on startup' is that both can be enabled to automatically play your saved gif when you start your PC. Nice right?
+
+
+
+## Note:
+I recently added a version of the program that uses USB protocol rather than the GameSenseSDK to communicate with the device. Credit to https://github.com/JerwuQu/ggoled for providing the VendorID and ProductIDs necessary to make this work.
+I largerly referenced the structure of this repo for establishing the USB connection, but have chosen to use Python rather than Rust for the rest of the project, as I did in the GameSense version. The USB version currently only works with Nova Pro headsets, NOT Arctis Pro. This is a work in progress!
