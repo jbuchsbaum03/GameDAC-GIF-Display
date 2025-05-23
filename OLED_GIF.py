@@ -94,6 +94,7 @@ class OLED_GIF:
                 self.sendFrame(frame)
                 time.sleep(self.frameDelaySeconds)
 
+    #########################################################################
 
     def playGIFCycle(self, gif_paths):
         processedGIFs = []
@@ -461,7 +462,7 @@ class GUI:
         }
 
         with open(self.pref_file_path, "w") as file:
-            json.dump(data, file)
+            json.dump(data, file, indent=4)
 
         if (self.startVar.get()):
             self.add_to_startup()
