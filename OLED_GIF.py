@@ -218,7 +218,7 @@ class GUI:
         
         documents_folder = os.path.expanduser("~\\Documents")
         self.game_dac_folder = os.path.join(documents_folder, "GameDAC GIF Display")
-        self.pref_file_path = os.path.join(self.game_dac_folder, "preferences")
+        self.pref_file_path = os.path.join(self.game_dac_folder, "preferences.json")
 
         #####################################################################
 

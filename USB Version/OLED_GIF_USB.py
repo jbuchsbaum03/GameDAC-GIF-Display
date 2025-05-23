@@ -656,7 +656,7 @@ class GUI:
 
     def add_to_startup(self):
         startup_folder = winshell.startup()
-        shortcut_path = os.path.join(startup_folder, "OLED_GIF.lnk")
+        shortcut_path = os.path.join(startup_folder, "OLED_GIF_USB.lnk")
         if not (os.path.exists(shortcut_path)):
             target = sys.executable
 
