@@ -500,7 +500,7 @@ class GUI:
             notif = "No GIFs in folder!"
             notif_thread = Thread(target=self.tempText, args=(self.gif_label, notif, "red"))
             notif_thread.start()
-            self.gif_player.display_error_message("Add GIFs!")
+            self.gif_player.display_error_message("Add GIFs!", 2)
             self.invert_button.config(state=tk.DISABLED)
         else:
             self.gif_player.running = True
