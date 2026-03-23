@@ -6,7 +6,7 @@ OLED_GIF.py has all the code for the purposes of this project. OLED_TEXT.py was 
 This project enables owners of a SteelSeries GameDAC or Nova Pro & Base Station to select a gif and loop it on the OLED embedded in these devices. ANY gif can be used- it will automatically be resized and converted to black and white so that it can be displayed on the screen. No promises that the displayed gif will be of high quality though, especially if your input is very high motion or very colorful. I recommend sticking to MOSTLY black and white gifs to ensure the output is clean.
 
 ## Notice
-This program requires SteelSeriesGG / SteelSeriesEngine to be running to communicate with OLED devices (only the GameSenseSDK version)
+The GameSenseSDK version of this program requires SteelSeriesGG / SteelSeriesEngine to be running to communicate with OLED device.
 Additionally, the program assumes that your coreProps.json file is located at "C:\ProgramData\SteelSeries\GG", which it should be if you installed GG in its default directory.
 This can be changed at the top of the OLED_GIF.py file, but you will have to manually compile the program.
 
